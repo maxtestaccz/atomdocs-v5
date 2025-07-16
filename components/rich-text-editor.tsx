@@ -14,6 +14,9 @@ import Color from '@tiptap/extension-color';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
 import { useState } from 'react';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import {
@@ -38,6 +41,7 @@ import {
   Trash2,
   Plus,
   Minus,
+  Settings,
 } from 'lucide-react';
 
 interface RichTextEditorProps {
@@ -47,6 +51,8 @@ interface RichTextEditorProps {
 
 export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
   const [deleteTableDialog, setDeleteTableDialog] = useState(false);
+  const [tableWidth, setTableWidth] = useState([100]);
+  const [tableHeight, setTableHeight] = useState([200]);
   
   const colors = [
     { name: 'Purple', value: '#8b5cf6' },
@@ -66,6 +72,26 @@ export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
             class: 'prose-heading',
           },
         },
+        blockquote: {
+          HTMLAttributes: {
+            class: 'border-l-4 border-gray-300 pl-4 italic text-gray-600 my-4',
+          },
+        },
+        bulletList: {
+          HTMLAttributes: {
+            class: 'list-disc list-inside my-4 space-y-2',
+          },
+        },
+        orderedList: {
+          HTMLAttributes: {
+            class: 'list-decimal list-inside my-4 space-y-2',
+          },
+        },
+        listItem: {
+          HTMLAttributes: {
+            class: 'ml-4',
+          },
+        },
       }),
       TextStyle,
       Color,
@@ -74,12 +100,15 @@ export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
       }),
       Image.configure({
         HTMLAttributes: {
-          class: 'max-w-full h-auto rounded-lg',
+          class: 'max-w-full h-auto rounded-lg my-4',
         },
       }),
       Link.configure({
+        openOnClick: false,
         HTMLAttributes: {
-          class: 'text-primary underline underline-offset-2',
+          class: 'text-blue-600 underline underline-offset-2 hover:text-blue-800',
+          target: '_blank',
+          rel: 'noopener noreferrer',
         },
       }),
       Table.configure({
@@ -87,18 +116,18 @@ export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
         lastColumnResizable: false,
         allowTableNodeSelection: true,
         HTMLAttributes: {
-          class: 'border-collapse table-auto w-full',
+          class: 'border-collapse table-auto w-full my-4',
         },
       }),
       TableRow,
       TableHeader.configure({
         HTMLAttributes: {
-          class: 'border border-border bg-muted/50 font-medium p-2',
+          class: 'border border-gray-300 bg-gray-50 font-medium p-3 text-left',
         },
       }),
       TableCell.configure({
         HTMLAttributes: {
-          class: 'border border-border p-2',
+          class: 'border border-gray-300 p-3',
         },
       }),
     ],
@@ -125,10 +154,22 @@ export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
   };
 
   const addLink = () => {
-    const url = window.prompt('Enter URL:');
-    if (url) {
-      editor.chain().focus().setLink({ href: url }).run();
+    const previousUrl = editor.getAttributes('link').href;
+    const url = window.prompt('Enter URL:', previousUrl);
+    
+    // cancelled
+    if (url === null) {
+      return;
     }
+
+    // empty
+    if (url === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+      return;
+    }
+
+    // update link
+    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
   };
 
   const addTable = () => {
@@ -171,12 +212,21 @@ export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
   const deleteRow = () => {
     editor.chain().focus().deleteRow().run();
   };
+
   const setTextColor = (color: string) => {
     editor.chain().focus().setColor(color).run();
   };
 
   const clearTextColor = () => {
     editor.chain().focus().unsetColor().run();
+  };
+
+  const updateTableSize = () => {
+    const table = editor.view.dom.querySelector('table');
+    if (table) {
+      table.style.width = `${tableWidth[0]}%`;
+      table.style.height = `${tableHeight[0]}px`;
+    }
   };
 
   return (
@@ -325,11 +375,53 @@ export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
           <Popover>
             <PopoverTrigger asChild>
               <Button type="button" variant="ghost" size="sm" className="bg-accent">
-                <TableIcon className="h-4 w-4" />
+                <Settings className="h-4 w-4" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-56 p-3" align="start">
-              <div className="space-y-3">
+            <PopoverContent className="w-80 p-4" align="start">
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Table Width (%)</Label>
+                  <div className="flex items-center space-x-3">
+                    <Slider
+                      value={tableWidth}
+                      onValueChange={setTableWidth}
+                      max={100}
+                      min={20}
+                      step={5}
+                      className="flex-1"
+                    />
+                    <span className="text-sm text-muted-foreground w-12">{tableWidth[0]}%</span>
+                  </div>
+                </div>
+                
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Table Height (px)</Label>
+                  <div className="flex items-center space-x-3">
+                    <Slider
+                      value={tableHeight}
+                      onValueChange={setTableHeight}
+                      max={800}
+                      min={100}
+                      step={20}
+                      className="flex-1"
+                    />
+                    <span className="text-sm text-muted-foreground w-16">{tableHeight[0]}px</span>
+                  </div>
+                </div>
+                
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={updateTableSize}
+                  className="w-full"
+                >
+                  Apply Size
+                </Button>
+                
+                <Separator />
+                
                 <div>
                   <h4 className="font-medium text-sm mb-2">Columns</h4>
                   <div className="flex gap-1">
